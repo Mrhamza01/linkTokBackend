@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\PostController;
 /*
 |--------------------------------------------------------------------------
@@ -25,7 +26,7 @@ Route::get('getallusers', [UserController::class, 'getAllUsers']);
 Route::middleware('auth:api')->group(function (){
     
   
-Route::post('like', [UserController::class, 'like']);
+Route::post('like', [LikeController::class, 'likeProfile']);
 Route::post('reset', [UserController::class, 'reset']);
 });
 

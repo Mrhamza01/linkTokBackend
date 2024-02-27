@@ -30,8 +30,8 @@ public function register(Request $request)
     if ($validator->fails()) {
         return response()->json([
             'status' => 'error',
-            'message' => 'Validation failed',
-            'errors' => $validator->errors()
+            'message' => 'registraion failed: ' . json_encode($validator->errors())
+           
         ], 422);
     }
 
@@ -91,7 +91,7 @@ public function login(Request $request)
     if ($validator->fails()) {
         return response()->json([
             'status' => 'error',
-            'message' => 'Validation failed',
+            'message' => 'email or passowrd is incorrect',
             'errors' => $validator->errors()
         ], 422);
     }
@@ -187,38 +187,6 @@ public function getAllUsers(Request $request)
     ], 200);
 }
 
-
-public function like(Request $request)
-    {
-        // Validate the request data
-        $request->validate([
-            'user_id' => 'required|integer|exists:users,id',
-            'profile_picture_id' => 'required|integer|exists:profile_pictures,id'
-        ]);
-
-        // Check if the user has already liked the profile picture
-        $like = Like::where('user_id', $request->user_id)
-                    ->where('profile_picture_id', $request->profile_picture_id)
-                    ->first();
-
-        // If the like record exists, return an error response
-        if ($like) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'You have already liked this profile picture'
-            ], 409);
-        }
-
-        // If the like record does not exist, create a new one
-        $like = Like::create($request->all());
-
-        // Return a success response with the like record
-        return response()->json([
-            'status' => 'success',
-            'message' => 'You have liked this profile picture',
-            'like' => $like
-        ], 201);
-    }
 
     public function reset(Request $request)
     {
