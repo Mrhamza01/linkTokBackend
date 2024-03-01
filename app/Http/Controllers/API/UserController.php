@@ -120,36 +120,7 @@ public function login(Request $request)
 }
 
 
-// public function getAllUsers(Request $request)
-// {
-//     // Get all the users from the database with the profile picture and the total likes count
-//     $users = User::with('profile_picture')->withCount('likes')->get();
 
-//     // Create an empty array to store the response data
-//     $data = [];
-
-//     // Loop through each user and add their data and image link to the array
-//     foreach ($users as $user) {
-//         // Get the profile picture path from the user's relation
-//         $path = $user->profile_picture->path;
-
-//         // Get the image link from the storage
-//         $image_url = url(Storage::url($path)); 
-        
-
-//         // Add the user data, image link, and total likes to the array
-//         $data[] = [
-//             'user' => $user,
-//             'image_link' => $image_url,
-//             'total_likes' => $user->likes_count
-//         ];
-//     }
-
-//     // Return a success response with the data array in JSON format
-//     return response()->json([
-//         'data' => $data
-//     ], 200);
-// }
 
 public function getAllUsers(Request $request)
 {
