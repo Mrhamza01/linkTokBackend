@@ -4,209 +4,171 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Auth\Authenticatable;
+use Illuminate\Support\Facades\Hash;
 use App\Models\User;
-use App\Models\ProfilePicture;
-use App\Models\like;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+
+
 class UserController extends Controller
 {
-// The function to register a new user
-public function register(Request $request)
+    /**
+     * Display a listing of the resource.
+     */
+    public function register(Request $request)
 {
-    // Validate the request data
-    $validator = Validator::make($request->all(), [
-        'username' => 'required|string|max:255',
-        'email' => 'required|string|email|max:255|unique:users',
-        'password' => 'required|string|min:8|confirmed',
-        'profile_picture' => 'required|image|mimes:jpg,jpeg,png',
-        'interests' => 'nullable|string',
+    /**
+     *          logic
+     * get fistname ,lastname ,email and password form the user
+     *  validate the request to check all the data recieved is correct
+     * combine the firstname and lastname to make the username
+     * start the database tarnsection 
+     * save the data in the database
+     * there is a image prsent in the storage in with the name of deafult image store the path of that image in the profilepictre
+     *  gernrate a token using passport 
+     * end the database trasection 
+     * if any error occur during the above delet the any data saved 
+     * send token in the cookie 
+     * send response user registered successfully
+     * do proper error handling with try catch sending appropriate resoponse with proper define message which give peoper sense what is the reson of he error 
+     */
+
+    // Get firstname, lastname, email and password from the user
+    $data = $request->only('firstname', 'lastname', 'email', 'password');
+
+    // Validate the request
+    $validator = Validator::make($data, [
+        'firstname' => 'required|string|max:10',
+        'lastname' => 'required|string|max:10',
+        'email' => 'required|string|email|max:50|unique:users',
+        'password' => 'required|string|min:8',
     ]);
 
-    // If the validation fails, return an error response
+    // If validation fails, return a JSON response with the errors
     if ($validator->fails()) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'registraion failed: ' . json_encode($validator->errors())
-           
-        ], 422);
+        return response()->json(['errors' => $validator->errors()], 422);
     }
 
-    // Store the profile picture in the local storage and get the path
-    $path = Storage::putFile('public/profile_pictures', $request->file('profile_picture'));
+    // Combine the firstname and lastname to make the username
+    $data['username'] = $data['firstname'] . ' ' . $data['lastname'];
 
-    // Create a new profile picture instance with the path
-    $profile_picture = new ProfilePicture();
-    $profile_picture->path = $path;
+    // Hash the password
+    $data['password'] = Hash::make($data['password']);
 
-    // Save the profile picture record in the database
-    if ($profile_picture->save()) {
-        // Create a new user instance with the request data and the profile picture id
-        $user = new User();
-        $user->username = $request->username;
-        $user->email = $request->email;
-        $user->password = Hash::make($request->password);
-        $user->profile_picture_id = $profile_picture->id;
-        $user->interests = $request->interests;
+    // Start the database transaction
+    DB::beginTransaction();
 
-        // Save the user record in the database
-        if ($user->save()) {
-            // Generate a token for the user
-            $token = $user->createToken('user-token')->accessToken;
+    try {
+        // Save the data in the database
+        $user = User::create($data);
 
-            // Return a success response with the user and the token
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Registered successfully',
-                'token' => $token
-            ], 201);
-        } else {
-            // Return an error response if the user save failed
-            return response()->json([
-                'status' => 'error',
-                'message' => 'User creation failed'
-            ], 500);
-        }
-    } else {
-        // Return an error response if the profile picture save failed
+        // Get the default image from the storage and store the path in the profilepicture
+        $path = Storage::url('default.jpg');
+        $user->update(['profilepicture' => $path]);
+
+        // Generate a token using passport
+        $token = $user->createToken('auth_token')->accessToken;
+       
+        // End the database transaction
+        DB::commit();
+
+        // Send token in the cookie
+        $cookie = cookie('auth_token', $token, 60 * 24); // create a cookie valid for 24 hours
+
+        // Send response user registered successfully
         return response()->json([
-            'status' => 'error',
-            'message' => 'Profile picture creation failed'
-        ], 500);
-    }
-}
+            'message' => 'User registered successfully',
+            'user' => $user,
+        ])->withCookie($cookie); // attach the cookie to the response
+    } catch (Exception $e) {
+        // If any error occurs, rollback the transaction and delete the token
+        DB::rollBack();
+        $user->tokens()->delete();
 
-public function login(Request $request)
-{
-    // Validate the request data
-    $validator = Validator::make($request->all(), [
-        'email' => 'required|string|email',
-        'password' => 'required|string',
-    ]);
-
-    // If the validation fails, return an error response
-    if ($validator->fails()) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'email or passowrd is incorrect',
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    // Attempt to authenticate the user with the given credentials
-    if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
-        // Get the authenticated user
-        $user = Auth::user();
-
-        // Generate a token for the user
-        $token = $user->createToken('user-token')->accessToken;
-
-        // Return a success response with the token and a message
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Login successful',
-            'token' => $token
-        ], 200);
-    } else {
-        // Return an error response if the authentication failed
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Invalid credentials'
-        ], 401);
+        // Send a JSON response with the exception message
+        return response()->json(['error' => $e->getMessage()], 500);
     }
 }
 
 
-// public function getAllUsers(Request $request)
-// {
-//     // Get all the users from the database with the profile picture and the total likes count
-//     $users = User::with('profile_picture')->withCount('likes')->get();
 
-//     // Create an empty array to store the response data
-//     $data = [];
-
-//     // Loop through each user and add their data and image link to the array
-//     foreach ($users as $user) {
-//         // Get the profile picture path from the user's relation
-//         $path = $user->profile_picture->path;
-
-//         // Get the image link from the storage
-//         $image_url = url(Storage::url($path)); 
         
-
-//         // Add the user data, image link, and total likes to the array
-//         $data[] = [
-//             'user' => $user,
-//             'image_link' => $image_url,
-//             'total_likes' => $user->likes_count
-//         ];
-//     }
-
-//     // Return a success response with the data array in JSON format
-//     return response()->json([
-//         'data' => $data
-//     ], 200);
-// }
-
-public function getAllUsers(Request $request)
-{
-    // Get all the users from the database with the profile picture and the total likes count
-    $users = User::with('profile_picture')->withCount('likes')->get();
-
-    // Create an empty array to store the response data
-    $data = [];
-
-    // Loop through each user and add their data and image link to the array
-    foreach ($users as $user) {
-        // Get the profile picture path from the user's relation
-        $path = $user->profile_picture->path;
-
-        // Get the image link from the storage
-        $image_url = url(Storage::url($path)); 
-        
-
-        // Add the user data, image link, and total likes to the array
-        // Only include the required attributes: id, username, email, profile_picture_id, image_link, and total_likes
-        $data[] = [
-            'id' => $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
-            'interests' => $user->interests,
-            'profile_picture_id' => $user->profile_picture_id,
-            'image_link' => $image_url,
-            'total_likes' => $user->likes_count
-        ];
-    }
-
-    // Return a success response with the data array in JSON format
-    return response()->json([
-        'data' => $data
-    ], 200);
-}
-
-
-    public function reset(Request $request)
+    /**
+     * Show the form for creating a new resource.
+     */
+    public function login(Request $request)
     {
-        // Define the validation rules
-        $rules = [
-            'old_password' => 'required|password', // This rule checks if the old password matches the current password
-            'new_password' => 'required|string|min:8|confirmed', // This rule checks if the new password is a string, has at least 8 characters, and matches the confirmation field
-        ];
-    
-    
-    
-        // If the validation passes, update the user's password
-        $user = Auth::user();
-        $user->update([
-            'password' => Hash::make($request->new_password),
-        ]);
-    
-        // Return a success response
-        return response()->json(['message' => 'Password updated successfully'], 200);
-    }
-    
+        /**
+         * get the email and password form the request
+         * validate the formate of the passwrod and email 
+         * check the email and password is same as in the database 
+         * if user is authenticated then
+         * gernate token and send it in cookie 
+         * save the cookie to the user browers 
+         *  also send json response that loged in succesfful 
+         * do proper validation and error handling use best pracitces and security practicese
+         * 
+         */
 
+    // Get the email and password from the request
+    $credentials = $request->only('email', 'password');
+
+    // Validate the format of the email and password
+    $validator = Validator::make($credentials, [
+        'email' => 'required|string|email|max:50',
+        'password' => 'required|string|min:8',
+    ]);
+
+    // If validation fails, return a JSON response with the errors
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    // Check if the email and password match the database records
+    if (Auth::attempt($credentials)) {
+        // If user is authenticated, generate a token using passport
+        $token = Auth::user()->createToken('auth_token')->accessToken;
+
+        // Send token in the cookie
+        $cookie = cookie('auth_token', $token, 60 * 24); // create a cookie valid for 24 hours
+
+        // Send response user logged in successfully
+        return response()->json([
+            'message' => 'User logged in successfully',
+            'user' => Auth::user(),
+        ])->withCookie($cookie); // attach the cookie to the response
+    } else {
+        // If authentication fails, return a JSON response with the error message
+        return response()->json(['error' => 'Invalid credentials'], 401);
+    }
+
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function UpdateProfilePicture(Request $request)
+    {
+        //
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function UpdateBio(string $id)
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function resetpassword(string $id)
+    {
+        //
+    }
+
+    
 }
