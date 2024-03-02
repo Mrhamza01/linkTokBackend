@@ -10,7 +10,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\URL;
 
 class UserController extends Controller
 {
@@ -64,9 +64,13 @@ class UserController extends Controller
         // Save the data in the database
         $user = User::create($data);
 
-        // Get the default image from the storage and store the path in the profilepicture
-        $path = Storage::url('default.jpg');
-        $user->update(['profilepicture' => $path]);
+        // // Get the default image from the storage and store the path in the profilepicture
+        // $path = Storage::url('default.jpg');
+        // $user->update(['profilepicture' => $path]);
+// Get the default image from the storage and store the path in the profilepicture
+            $fileName = 'default.jpg';
+            $path = URL::asset('storage/' . $fileName);
+            $user->update(['profilepicture' => $path]);
 
         // Generate a token using passport
         $token = $user->createToken('auth_token')->accessToken;
@@ -138,6 +142,7 @@ class UserController extends Controller
         return response()->json([
             'message' => 'User logged in successfully',
             'user' => Auth::user(),
+            'profilepictureURL' => asset('storage/' . Auth::user()->profilepicture),
         ])->withCookie($cookie); // attach the cookie to the response
     } else {
         // If authentication fails, return a JSON response with the error message

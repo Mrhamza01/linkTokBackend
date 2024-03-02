@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('username',20);
             $table->string('email',50)->unique();
             $table->string('password');
-            $table->unsignedBigInteger('profilepicture')->nullable();
+            $table->string('profilepicture')->default('default.jpg');
             $table->string('userbio',250)->nullable();
             $table->boolean('isactive')->default(0); 
             $table->enum('usertype', ['user', 'admin'])->default('user');
