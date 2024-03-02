@@ -18,12 +18,8 @@ return new class extends Migration
             $table->string('username');
             $table->string('email')->unique();
             $table->string('password');
-            $table->unsignedBigInteger('profile_picture_id'); 
-            $table->string('interests')->nullable();
+            $table->unsignedBigInteger('profile_picture'); 
             $table->timestamps();
-
-
-            $table->foreign('profile_picture_id')->references('id')->on('profile_pictures');
         });
     }
 
