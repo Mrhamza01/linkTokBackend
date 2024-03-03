@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\PostController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -21,10 +22,11 @@ Route::get('getallusers', [UserController::class, 'getAllUsers']);
 
 
 
-
+Route::post('updateprofilepicture',[UserController::class, 'updateprofilepicture']);  
 
 Route::middleware('auth:api')->group(function (){
     
+
   
 Route::post('like', [LikeController::class, 'likeProfile']);
 Route::post('reset', [UserController::class, 'reset']);

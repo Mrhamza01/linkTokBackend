@@ -21,6 +21,7 @@ class UserController extends Controller
 {
     /**
      *          logic
+     * 
      * get fistname ,lastname ,email and password form the user
      *  validate the request to check all the data recieved is correct
      * combine the firstname and lastname to make the username
@@ -106,10 +107,14 @@ class UserController extends Controller
     {
         /**
          * get the email and password form the request
-         * validate the formate of the passwrod and email 
+         * validate the formate of the passwrod and email
+         * check the block table if the userid of the this user is presnt 
+         * if present then send response you are blocked by the admin you can't login 
+         * if user id is not present then continous beclwo steps 
          * check the email and password is same as in the database 
          * if user is authenticated then
-         * gernate token and send it in cookie 
+         * gernate token 
+         * make the isactive colum of that user 1 
          * save the cookie to the user browers 
          *  also send json response that loged in succesfful 
          * do proper validation and error handling use best pracitces and security practicese
@@ -130,13 +135,26 @@ class UserController extends Controller
         return response()->json(['errors' => $validator->errors()], 422);
     }
 
+
     // Check if the email and password match the database records
     if (Auth::attempt($credentials)) {
+
+
+        $blocked = DB::table('block')->where('user_id', Auth::user()->id)->exists();
+
+        // If the user is blocked, return a JSON response with the error message
+        if ($blocked) {
+            return response()->json(['error' => 'You are blocked by the admin. You cannot login.'], 403);
+        }
+
         // If user is authenticated, generate a token using passport
         $token = Auth::user()->createToken('auth_token')->accessToken;
 
         // Send token in the cookie
         $cookie = cookie('auth_token', $token, 60 * 24); // create a cookie valid for 24 hours
+
+        // Update the user's isactive column to 1
+        Auth::user()->update(['isactive' => 1]);
 
         // Send response user logged in successfully
         return response()->json([
@@ -156,9 +174,8 @@ class UserController extends Controller
      */
     public function UpdateProfilePicture(Request $request)
     {
-        //
-    }
-
+      
+    }   
     /**
      * Display the specified resource.
      */
