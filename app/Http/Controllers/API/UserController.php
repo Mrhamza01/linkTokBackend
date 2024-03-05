@@ -80,7 +80,7 @@ class UserController extends Controller
         DB::commit();
 
         // Send token in the cookie
-        $cookie = cookie('auth_token', $token, 60 * 24); // create a cookie valid for 24 hours
+        $cookie = cookie('linktok_auth_cookie', $token, 60 * 24); // create a cookie valid for 24 hours
 
         // Send response user registered successfully
         return response()->json([
@@ -151,7 +151,7 @@ class UserController extends Controller
         $token = Auth::user()->createToken('auth_token')->accessToken;
 
         // Send token in the cookie
-        $cookie = cookie('auth_token', $token, 60 * 24); // create a cookie valid for 24 hours
+        $cookie = cookie('linktok_auth_cookie', $token, 60 * 24); // create a cookie valid for 24 hours
 
         // Update the user's isactive column to 1
         Auth::user()->update(['isactive' => 1]);
