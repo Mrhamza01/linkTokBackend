@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Cookie;
+
 
 class UserController extends Controller
 {
@@ -37,14 +40,14 @@ class UserController extends Controller
      */
 
     // Get firstname, lastname, email and password from the user
-    $data = $request->only('firstname', 'lastname', 'email', 'password');
+    $data = $request->only('firstname', 'lastname', 'email', 'password', 'password_confirmation');
 
     // Validate the request
     $validator = Validator::make($data, [
         'firstname' => 'required|string|max:10',
         'lastname' => 'required|string|max:10',
         'email' => 'required|string|email|max:50|unique:users',
-        'password' => 'required|string|min:8',
+        'password' => 'required|string|min:8|confirmed',
     ]);
 
     // If validation fails, return a JSON response with the errors
@@ -74,13 +77,13 @@ class UserController extends Controller
             $user->update(['profilepicture' => $path]);
 
         // Generate a token using passport
-        $token = $user->createToken('auth_token')->accessToken;
+        $token = $user->createToken('linktok_auth')->accessToken;
        
         // End the database transaction
         DB::commit();
 
         // Send token in the cookie
-        $cookie = cookie('linktok_auth_cookie', $token, 60 * 24); // create a cookie valid for 24 hours
+        $cookie = cookie('linktok_auth', $token, 60 * 24); // create a cookie valid for 24 hours
 
         // Send response user registered successfully
         return response()->json([
@@ -148,10 +151,10 @@ class UserController extends Controller
         }
 
         // If user is authenticated, generate a token using passport
-        $token = Auth::user()->createToken('auth_token')->accessToken;
+        $token = Auth::user()->createToken('linktok_auth')->accessToken;
 
         // Send token in the cookie
-        $cookie = cookie('linktok_auth_cookie', $token, 60 * 24); // create a cookie valid for 24 hours
+        $cookie = cookie('linktok_auth', $token, 60 * 24); // create a cookie valid for 24 hours
 
         // Update the user's isactive column to 1
         Auth::user()->update(['isactive' => 1]);
@@ -174,23 +177,187 @@ class UserController extends Controller
      */
     public function UpdateProfilePicture(Request $request)
     {
-      
+      /**
+       * logic 
+       * validate the image formate
+       * save the image in the local storage in the folder name on userid and inside the userid should be the profilePic inside that image should be save 
+       * from the request we get the id for that user whos  profile picture we want to update
+       * after saving the image update the profilepicture colum of that user 
+       * in the profilepicture colum save the path of that image 
+       * send the json response profile picture updated succesfull 
+       * do proper validation and error hanlding 
+       */
+
+// Validate the image format
+$request->validate([
+    'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+]);
+
+// Get the user ID from the request
+$userId = $request->id;
+
+// Find the user by ID
+$user = User::findOrFail($userId);
+
+// Define the folder path using the user ID
+$folderPath = 'profile_pictures/' . $userId . '/';
+
+// Check if the directory exists, if not create a new one
+if (!File::isDirectory($folderPath)) {
+    File::makeDirectory($folderPath, 0777, true, true);
+}
+
+// Save the image in the local storage
+if ($request->hasFile('profile_picture')) {
+    $file = $request->file('profile_picture');
+    $fileName = 'profilePic.' . $file->getClientOriginalExtension();
+    $file->move($folderPath, $fileName);
+
+    // Update the profile picture column of the user
+    $user->profilepicture = $folderPath . $fileName;
+    $user->save();
+
+    // Send the JSON response
+    return response()->json(['message' => 'Profile picture updated successfully'], 200);
+} else {
+    // Send an error response if no image is provided
+    return response()->json(['message' => 'No profile picture uploaded'], 400);
+}
+
     }   
     /**
      * Display the specified resource.
      */
-    public function UpdateBio(string $id)
+    public function UpdateBio(Request $request)
     {
-        //
+        /**
+         * logic 
+         *  /**
+       * logic 
+       * validate the input it should not be sql injection commands etc userbio should not be more then 250 charactors 
+       * from the request we get the id for that user whos  userbio we want to update
+       * in the userbio colum of that user save the userbio send in the request 
+       * send the json response profile userbio updated succesfull 
+       * do proper validation and error hanlding
+       * do proper validation and eroor handling 
+       */
+      // Validate the request data.
+    $validatedData = $request->validate([
+        'id' => 'required|numeric',
+        'userBio' => 'required|string|max:250'
+    ]);
+
+    try {
+        // Retrieve the user by ID.
+        $user = User::findOrFail($validatedData['id']);
+
+        // Update the user's biography.
+        $user->userBio = $validatedData['userBio'];
+        $user->save();
+
+        // Return a JSON response indicating success.
+        return response()->json(['message' => 'Profile biography updated successfully.'], 200);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        // Return a JSON response indicating the user was not found.
+        return response()->json(['error' => 'User not found.'], 404);
+    } catch (\Exception $e) {
+        // Return a JSON response indicating a server error.
+        return response()->json(['error' => 'Server error.'], 500);
+    }   
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function resetpassword(string $id)
+    public function resetpassword(Request $request)
     {
-        //
+        /**
+         * logic
+         * from the request we get the oldpassword,newpassword and confirm  new passowrd 
+         * do the validation on the password 
+         * in the request we also get the userid 
+         * check the password stored in the database match with the old password 
+         * if yes change the passowrd to the new password 
+         * else end an error 
+         * do proper validationa and error handling 
+         * and send response in json formate 
+         */
+
+         // Validate the request data.
+    $validatedData = $request->validate([
+        'userId' => 'required|numeric',
+        'oldPassword' => 'required|string',
+        'newPassword' => 'required|string|confirmed|min:8',
+    ]);
+
+    try {
+        // Retrieve the user by ID.
+        $user = User::findOrFail($validatedData['userId']);
+
+        // Check if the old password matches.
+        if (!Hash::check($validatedData['oldPassword'], $user->password)) {
+            return response()->json(['error' => 'The provided password does not match our records.'], 401);
+        }
+
+        // Update the user's password.
+        $user->password = Hash::make($validatedData['newPassword']);
+        $user->save();
+
+        // Return a JSON response indicating success.
+        return response()->json(['message' => 'Password reset successfully.'], 200);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        // Return a JSON response indicating the user was not found.
+        return response()->json(['error' => 'User not found.'], 404);
+    } catch (\Exception $e) {
+        // Return a JSON response indicating a server error.
+        return response()->json(['error' => 'Server error.'], 500);
+    }
     }
 
+
+    public function Logout(Request $request){
+        /**
+         * logic
+         * we get the id of the user in the request
+         * make the isactive fild of the user 0 
+         * remove the cookie from the user browser 
+         * do the proper validaiton and error handling 
+         * if the token of the user expires logout the user automatically 
+         */
+
+    
+    // Validate the request data.
+    $validatedData = $request->validate([
+        'id' => 'required|numeric'
+    ]);
+
+    try {
+        // Retrieve the user by ID.
+        $user = User::findOrFail($validatedData['id']);
+
+        // Set the isActive field to 0.
+        $user->isActive = 0;
+        $user->save();
+
+        // Revoke the user's token.
+        // $user->token()->revoke();
+
+        $user->tokens->each(function ($token, $key) {
+            $token->revoke();
+        });
+
+        // Delete the cookie named 'token' from the user's browser.
+        $cookie = Cookie::forget('linktok_auth');
+
+        // Return a JSON response indicating success and attach the cookie to the response.
+        return response()->json(['message' => 'Logged out successfully.'], 200)->withCookie($cookie);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        // Return a JSON response indicating the user was not found.
+        return response()->json(['error' => 'User not found.'], 404);
+    } catch (\Exception $e) {
+        // Return a JSON response indicating a server error.
+        return response()->json(['error' => 'Server error.'], 500);
+    }
+    }
     
 }

@@ -20,17 +20,28 @@ Route::post('register', [UserController::class, 'register']);
 Route::post('login', [UserController::class, 'login']);
 Route::get('getallusers', [UserController::class, 'getAllUsers']);
 
+  
+Route::post('updateprofilepicture',[UserController::class, 'updateprofilepicture']); 
+Route::post('updatebio',[UserController::class, 'UpdateBio']);
+Route::post('resetpassword',[UserController::class, 'resetpassword']);
+Route::post('logout',[UserController::class, 'Logout']);
+Route::middleware(['auth:api' ])->group(function () {
+    // Your protected routes
+    Route::post('like', [LikeController::class, 'likeProfile']);
+    Route::post('reset', [UserController::class, 'reset']);
+    // Route::post('updateprofilepicture',[UserController::class, 'updateprofilepicture']); 
+    // Route::post('updatebio',[UserController::class, 'UpdateBio']);
+  // Route::post('resetpassword',[UserController::class, 'resetpassword']);  
+ 
+});
 
-
-Route::post('updateprofilepicture',[UserController::class, 'updateprofilepicture']);  
-
-Route::middleware('auth:api')->group(function (){
+// Route::middleware('auth:api')->group(function (){
     
 
   
-Route::post('like', [LikeController::class, 'likeProfile']);
-Route::post('reset', [UserController::class, 'reset']);
-});
+// Route::post('like', [LikeController::class, 'likeProfile']);
+// Route::post('reset', [UserController::class, 'reset']);
+// });
 
 
 
